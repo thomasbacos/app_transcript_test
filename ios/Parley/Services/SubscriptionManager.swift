@@ -77,7 +77,8 @@ final class SubscriptionManager {
             serverReachable = (error as? APIError)?.code != "network"
         }
         hasLocalEntitlement = !(await Self.currentTransactions()).isEmpty
-        serverRejectedPurchase = hasLocalEntitlement && !isActive && (await APIClient.shared.rejectedTransactions) > 0
+        let rejected = await APIClient.shared.rejectedTransactions
+        serverRejectedPurchase = hasLocalEntitlement && !isActive && rejected > 0
     }
 
     /// StoreKit has a subscription but the server refused its proof (wrong APPLE_APP_ID, bundle id, or an
