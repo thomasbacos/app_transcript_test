@@ -1,0 +1,15 @@
+# Local run: cp .env.example .env (fill OPENAI_API_KEY), then `docker compose up --build`.
+# API on http://localhost:8000. To reach it from an iPhone, expose it (e.g. `ngrok http 8000`) and put
+# the https URL in ios/Config/Parley.xcconfig.
+services:
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    ports:
+      - "8000:8000"
+    volumes:
+      - parley-data:/data
+volumes:
+  parley-data:

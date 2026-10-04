@@ -1,0 +1,23 @@
+# macOS / Xcode
+.DS_Store
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Python / server
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+server/data/
+server/.env
+.env
+
+# Editors
+.vscode/
+.idea/

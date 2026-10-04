@@ -1,0 +1,18 @@
+// Parley build configuration: THE file to edit before building (see docs/DEPLOIEMENT.md).
+// Both targets (app + Live Activity widget) read it.
+
+// Bundle identifier registered in App Store Connect. The in-app purchase product IDs are derived from it
+// (<bundle id>.essential.monthly, .pro.monthly, .pro.yearly): keep them in sync with Products.storekit.
+PARLEY_BUNDLE_ID = com.thomasbacos.parley
+
+// Your Apple Developer Team ID (developer.apple.com -> Membership). You can also pick the team in Xcode:
+// target Parley -> Signing & Capabilities.
+DEVELOPMENT_TEAM =
+
+// URL of your Parley server (the one that holds OPENAI_API_KEY). In .xcconfig files "//" starts a
+// comment, hence the $() between the two slashes.
+PARLEY_API_BASE_URL = https:/$()/parley-api.onrender.com
+
+// App Store version and build number (increase the build number for every upload to App Store Connect).
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 1

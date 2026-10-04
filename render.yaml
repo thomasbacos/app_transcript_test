@@ -1,0 +1,41 @@
+# Render Blueprint: dashboard.render.com -> New -> Blueprint -> pick this repo.
+# You will be asked for the values marked `sync: false` (OPENAI_API_KEY first of all).
+services:
+  - type: web
+    name: parley-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:                         # SQLite database + audio being processed
+      name: parley-data
+      mountPath: /data
+      sizeGB: 10
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: APP_BUNDLE_ID
+        value: com.thomasbacos.parley
+      - key: APPLE_APP_ID
+        sync: false
+      - key: APPLE_ENVIRONMENTS
+        value: Production,Sandbox
+      - key: OPERATOR_NAME
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: APNS_KEY_ID
+        sync: false
+      - key: APNS_TEAM_ID
+        sync: false
+      - key: APNS_PRIVATE_KEY
+        sync: false
+      - key: DATA_DIR
+        value: /data

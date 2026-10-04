@@ -1,0 +1,57 @@
+name: iOS build
+
+on:
+  push:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode
+        run: xcodebuild -version
+
+      - name: Build for the simulator (no signing)
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/Parley.xcodeproj -scheme Parley -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || true
+          tail -n 5 build.log
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Build for devices (Release, no signing)
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/Parley.xcodeproj -scheme Parley -configuration Release \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO build > build-release.log 2>&1 || true
+          tail -n 5 build-release.log
+          grep -q "BUILD SUCCEEDED" build-release.log
+
+      - name: Report compiler errors
+        if: failure()
+        run: |
+          for f in build.log build-release.log; do
+            [ -f "$f" ] || continue
+            grep -E "error:" "$f" | sed "s#$GITHUB_WORKSPACE/##g" | sort -u > errors.txt || true
+            # one annotation per error (GitHub shows the first 10 per step)...
+            head -10 errors.txt | while IFS= read -r line; do echo "::error::$line"; done
+            # ...and all of them in a single one
+            if [ -s errors.txt ]; then
+              echo "::error title=All errors ($f)::$(head -60 errors.txt | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+            fi
+          done
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-logs
+          path: build*.log
