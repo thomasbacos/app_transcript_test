@@ -148,6 +148,25 @@ def test_failure_is_retried_then_resumable(env, audio_file, monkeypatch):
         assert fake.calls["flat"] == before, "the retry reuses the finished text pass"
 
 
+def test_restart_requeues_jobs_that_were_running(env, audio_file):
+    import os
+    import shutil
+    from app import main
+    from app.db import Job, session as db_session
+    from app.jobs import job_dir
+    with client_for(FakeOpenAI()) as c:
+        h, _ = session(c, [xcode_transaction()])
+        job = create(c, h, 150).json()
+        # as if the server had died mid-processing: audio on disk, row still "processing"
+        os.makedirs(job_dir(job["id"]), exist_ok=True)
+        shutil.copy(audio_file, os.path.join(job_dir(job["id"]), "audio.m4a"))
+        with db_session() as db:
+            j = db.get(Job, job["id"])
+            j.status, j.duration_seconds = "processing", 150.0
+        main.runner.recover()
+        assert wait_done(c, h, job["id"])["status"] == "done"
+
+
 def test_public_pages(env):
     with client_for(FakeOpenAI()) as c:
         p = c.get("/v1/plans").json()

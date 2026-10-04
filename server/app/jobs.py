@@ -100,14 +100,17 @@ class Runner:
     def recover(self):
         """After a restart: re-queue what was running if its audio is still here, else fail it so the app
         re-uploads (it keeps the recording locally)."""
+        requeue = []
         with session() as db:
             for j in db.scalars(select(Job).where(Job.status.in_(("queued", "processing")))):
                 if audio_path(j.id):
                     j.status, j.stage = "queued", "queued"
-                    self.submit(j.id)
+                    requeue.append(j.id)
                 else:
                     j.status, j.error_code, j.retryable = "failed", "audio_missing", True
                     j.error_message = "The server restarted before processing finished. Upload again."
+        for job_id in requeue:              # after the commit: the worker must see "queued"
+            self.submit(job_id)
 
     def submit(self, job_id, delay=0):
         ev = self.cancel.setdefault(job_id, threading.Event())
