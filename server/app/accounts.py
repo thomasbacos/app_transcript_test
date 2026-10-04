@@ -1,16 +1,32 @@
 """Accounts, sessions and allowances."""
 import datetime as dt
+import threading
 
 import jwt
 from sqlalchemy import func, select
 
 from . import appstore
 from .config import get_settings
-from .db import ACTIVE, Account, Install, Job, Usage, aware, utcnow
+from .db import ACTIVE, Account, Install, Job, RevokedTransaction, Usage, aware, utcnow
 
 
 class AuthError(Exception):
     pass
+
+
+class TransientError(Exception):
+    """Apple could not be reached to verify a purchase: try again later, do not downgrade the user."""
+
+
+_locks = {}
+_locks_guard = threading.Lock()
+
+
+def account_lock(account_id):
+    """Serializes allowance checks and charges per account (the server runs as a single instance), so
+    parallel requests cannot each see the same remaining minutes."""
+    with _locks_guard:
+        return _locks.setdefault(account_id, threading.Lock())
 
 
 # ------------------------------------------------------------------ sessions ----
@@ -73,13 +89,18 @@ def free_account(db, install_id):
 
 def open_session(db, install_id, transactions, apns_token=None, apns_env=None, locale=None, app_version=None):
     """Verify the device's transactions, pick the best entitlement, link the install to its account."""
-    ents, errors = [], []
+    ents, errors, transient = [], [], False
     for jws in (transactions or [])[:10]:
         try:
             ents.append(appstore.entitlement_from(appstore.verify_transaction(jws)))
         except appstore.InvalidTransaction as e:
             errors.append(str(e))
+            transient = transient or e.retryable
+    # a refunded transaction stays refunded, even if an old signed copy of it is presented again
+    ents = [e for e in ents if e and db.get(RevokedTransaction, e.transaction_id) is None]
     ent = appstore.best(ents)
+    if ent is None and transient:
+        raise TransientError("purchase verification temporarily unavailable")
     acc = apply_entitlement(db, ent) if ent else free_account(db, install_id)
     inst = db.get(Install, install_id)
     if inst is None:
@@ -166,8 +187,16 @@ def check_can_start(db, acc, seconds, exclude_job=None):
     return plan
 
 
+def revoke(db, transaction_id, original_transaction_id):
+    if transaction_id and db.get(RevokedTransaction, str(transaction_id)) is None:
+        db.add(RevokedTransaction(transaction_id=str(transaction_id)))
+    acc = db.get(Account, "ot:%s" % original_transaction_id)
+    if acc and (acc.transaction_id is None or acc.transaction_id == str(transaction_id)):
+        acc.revoked = True
+
+
 def charge(db, job):
-    """Count a finished job against its period, once."""
+    """Count a finished job against its period, once. Call under account_lock(job.account_id)."""
     if job.charged or not job.period_key:
         return
     u = db.get(Usage, (job.account_id, job.period_key))

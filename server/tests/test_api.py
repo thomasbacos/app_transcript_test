@@ -181,7 +181,7 @@ def test_public_pages(env):
 def test_periods():
     utc = dt.timezone.utc
     ent = appstore.Entitlement("pro", "x.pro.yearly", False, "1", "9", dt.datetime(2026, 1, 31, tzinfo=utc),
-                               dt.datetime(2027, 1, 31, tzinfo=utc), "Sandbox")
+                               dt.datetime(2027, 1, 31, tzinfo=utc), "Production")
     key, end = appstore.period_of(ent, dt.datetime(2026, 3, 15, tzinfo=utc))
     assert key == "9:1" and end == dt.datetime(2026, 3, 31, tzinfo=utc)
     key, end = appstore.period_of(ent, dt.datetime(2026, 2, 27, tzinfo=utc))
@@ -196,7 +196,7 @@ def test_yearly_allowance_rolls_over_without_a_new_session():
     from app.db import Account
     utc = dt.timezone.utc
     ent = appstore.Entitlement("pro", "x.pro.yearly", False, "1", "9", dt.datetime(2026, 1, 10, tzinfo=utc),
-                               dt.datetime(2027, 1, 10, tzinfo=utc), "Sandbox")
+                               dt.datetime(2027, 1, 10, tzinfo=utc), "Production")
     acc = Account(id=ent.account_id)
 
     class FakeDB:

@@ -6,6 +6,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         UploadManager.shared.activate()
+        // A recording timer left on the Lock Screen by a previous run (crash, app killed) goes away now,
+        // including when iOS launches the app in the background for a Live Activity button.
+        if !AppModel.shared.recorder.isActive { LiveActivityManager.shared.endAll() }
         return true
     }
 

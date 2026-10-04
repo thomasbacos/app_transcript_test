@@ -57,7 +57,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Privacy")
                 } footer: {
-                    Text("Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone.")
+                    Text("Recordings you transcribe are processed by OpenAI, our AI provider. Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone.")
                 }
 
                 Section("About") {

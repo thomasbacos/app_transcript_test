@@ -58,7 +58,7 @@ struct RecorderView: View {
 
                 Spacer()
 
-                HStack(spacing: 40) {
+                HStack(alignment: .bottom, spacing: 40) {
                     roundButton(icon: "flag.fill", label: tr("Mark"), size: 60) {
                         recorder.addMarker()
                         markerTick += 1

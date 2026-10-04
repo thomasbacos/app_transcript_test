@@ -381,7 +381,7 @@ def build_refs(audio, segs, offset):
 
 # -------------------------------------------------------------------- run ----
 def run(src, workdir, client, models, languages=None, keywords=None, speakers=True, on_text=None,
-        cache=None, progress=None, cancelled=None, parallel=8):
+        cache=None, progress=None, cancelled=None, parallel=8, on_duration=None):
     """Transcribe `src`. Returns {"text", "langs", "foreign", "turns", "duration", "anchored",
     "splits", "dia_lang_warning"}. progress(stage, fraction) with stage in preparing / text / speakers."""
     progress = progress or (lambda *_: None)
@@ -403,6 +403,8 @@ def run(src, workdir, client, models, languages=None, keywords=None, speakers=Tr
     dur = res["duration"] = audio.duration
     if dur < 0.5:
         raise ValueError("audio_too_short")
+    if on_duration:                 # e.g. check the allowance against the decoded length, before any API call
+        on_duration(dur)
     full = os.path.join(workdir, "full.m4a")
     encode_range(audio, 0, dur, full)
     if os.path.getsize(full) / 1024 / 1024 < UPLOAD_MAX_MB:

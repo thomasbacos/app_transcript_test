@@ -99,6 +99,13 @@ struct HomeView: View {
             .listStyle(.insetGrouped)
             .searchable(text: $search, prompt: Text("Search titles and transcripts"))
 
+            // Soft fade so the floating button never sits on top of a row's text.
+            LinearGradient(colors: [Color(.systemGroupedBackground).opacity(0), Color(.systemGroupedBackground)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 110)
+                .allowsHitTesting(false)
+                .ignoresSafeArea(edges: .bottom)
+
             RecordDock(onImport: { showImporter = true })
         }
         .navigationTitle("Parley")

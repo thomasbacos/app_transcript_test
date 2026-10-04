@@ -19,11 +19,11 @@ import shutil
 import threading
 import time
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from . import accounts, notify
 from .config import get_settings
-from .db import Job, aware, session, utcnow
+from .db import Account, Job, aware, session, utcnow
 from .pipeline import process as proc
 from .pipeline import transcribe
 
@@ -92,9 +92,9 @@ class Runner:
         self._janitor.start()
 
     def stop(self):
+        """Shutdown (deploy, restart): running jobs are NOT cancelled. Their rows stay "processing" with
+        the audio on disk, and recover() re-queues them when the server is back."""
         self._stop.set()
-        for ev in list(self.cancel.values()):
-            ev.set()
         self.pool.shutdown(wait=False, cancel_futures=True)
 
     def recover(self):
@@ -113,15 +113,21 @@ class Runner:
             self.submit(job_id)
 
     def submit(self, job_id, delay=0):
-        ev = self.cancel.setdefault(job_id, threading.Event())
+        self.cancel.setdefault(job_id, threading.Event())
+        if delay:
+            t = threading.Timer(delay, self._submit_now, args=(job_id,))
+            t.daemon = True
+            t.start()
+        else:
+            self._submit_now(job_id)
 
-        def go():
-            if delay:
-                if ev.wait(delay) or self._stop.is_set():
-                    return
-            self._run(job_id)
-
-        self.pool.submit(go)
+    def _submit_now(self, job_id):
+        if self._stop.is_set() or self.cancel.get(job_id, threading.Event()).is_set():
+            return
+        try:
+            self.pool.submit(self._run, job_id)
+        except RuntimeError:            # pool shut down
+            pass
 
     def request_cancel(self, job_id):
         ev = self.cancel.get(job_id)
@@ -132,12 +138,15 @@ class Runner:
     def _run(self, job_id):
         ev = self.cancel.setdefault(job_id, threading.Event())
         with session() as db:
-            j = db.get(Job, job_id)
-            if j is None or j.status not in ("queued",):
+            claimed = db.execute(update(Job).where(Job.id == job_id, Job.status == "queued")
+                                 .values(status="processing", stage="preparing")).rowcount
+            if claimed != 1:
                 return
-            j.status, j.stage, j.attempts = "processing", "preparing", (j.attempts or 0) + 1
+            j = db.get(Job, job_id)
+            j.attempts = (j.attempts or 0) + 1
             j.error_code = j.error_message = None
             opts = json.loads(j.options_json or "{}")
+            owner = j.account_id
         src = audio_path(job_id)
         d = job_dir(job_id)
         docs = sorted(glob.glob(os.path.join(d, "docs", "*")))
@@ -162,13 +171,23 @@ class Runner:
             except Exception as e:          # progress is cosmetic
                 log.debug("progress update failed: %s", e)
 
+        def on_duration(real):
+            """The decoded length is the truth (a file header can lie): check it before any API call."""
+            with accounts.account_lock(owner), session() as db:
+                jj = db.get(Job, job_id)
+                if jj is None or real <= (jj.duration_seconds or jj.declared_seconds) * 1.05 + 10:
+                    return
+                accounts.check_can_start(db, db.get(Account, owner), real, exclude_job=job_id)
+                jj.duration_seconds = real
+
         try:
             if not src:
                 raise FileNotFoundError("audio_missing")
             client = self.client_factory()
             models = transcribe.Models(s.transcribe_model, s.diarize_model)
             result = proc.process(src, docs, opts, client, models, (s.llm_model, s.llm_fallback_model), cache,
-                                  work, progress=progress, cancelled=ev.is_set, parallel=s.diarize_parallel)
+                                  work, progress=progress, cancelled=ev.is_set, parallel=s.diarize_parallel,
+                                  on_duration=on_duration)
         except transcribe.Cancelled:
             with session() as db:
                 j = db.get(Job, job_id)
@@ -182,17 +201,21 @@ class Runner:
         finally:
             shutil.rmtree(work, ignore_errors=True)
 
-        with session() as db:
-            j = db.get(Job, job_id)
-            if j is None or j.status != "processing":      # deleted meanwhile
-                self._cleanup(job_id, everything=True)
-                return
-            j.duration_seconds = result["duration"]
-            j.result_json = json.dumps(result, ensure_ascii=False)
-            j.title = (result.get("title") or "")[:300] or None
-            j.status, j.stage, j.progress, j.finished_at = "done", "done", 1.0, utcnow()
-            accounts.charge(db, j)
-            install_id, title = j.install_id, j.title
+        try:
+            with accounts.account_lock(owner), session() as db:
+                j = db.get(Job, job_id)
+                if j is None or j.status != "processing":      # deleted meanwhile
+                    self._cleanup(job_id, everything=True)
+                    return
+                j.duration_seconds = result["duration"]
+                j.result_json = json.dumps(result, ensure_ascii=False)
+                j.title = (result.get("title") or "")[:300] or None
+                j.status, j.stage, j.progress, j.finished_at = "done", "done", 1.0, utcnow()
+                accounts.charge(db, j)
+                install_id, title = j.install_id, j.title
+        except Exception as e:                              # never leave a job "processing" forever
+            self._failed(job_id, e)
+            return
         self._cleanup(job_id)                               # audio and cache: no longer needed
         self.cancel.pop(job_id, None)
         notify.job_done(install_id, job_id, title)
@@ -201,6 +224,8 @@ class Runner:
     def _failed(self, job_id, e):
         if isinstance(e, FileNotFoundError) and "audio_missing" in str(e):
             code, retryable, msg = "audio_missing", True, "The audio is no longer on the server. Upload again."
+        elif isinstance(e, accounts.QuotaError):
+            code, retryable, msg = e.code, False, e.message
         else:
             code, retryable, msg = classify(e)
         log.warning("job %s failed: %s: %s", job_id, code, str(e)[:300])

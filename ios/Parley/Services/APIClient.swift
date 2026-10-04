@@ -155,6 +155,7 @@ actor APIClient {
     private var pushToken: String?
     private var transactions: (@Sendable () async -> [String])?
     private var refreshing: Task<AccountStatus, Error>?
+    private var pushTokenPending = false
     /// Transactions the server refused at the last session (see SubscriptionManager.serverRejectedPurchase).
     private(set) var rejectedTransactions = 0
 
@@ -173,6 +174,7 @@ actor APIClient {
     func setPushToken(_ t: String) {
         guard t != pushToken else { return }
         pushToken = t
+        pushTokenPending = true
         tokenExpiry = .distantPast        // re-open the session to register it
     }
 
@@ -180,7 +182,10 @@ actor APIClient {
 
     @discardableResult
     func refreshSession() async throws -> AccountStatus {
-        if let refreshing { return try await refreshing.value }
+        if let refreshing {
+            let account = try await refreshing.value
+            if !pushTokenPending { return account }
+        }
         let task = Task { try await self.openSession() }
         refreshing = task
         defer { refreshing = nil }
@@ -196,6 +201,7 @@ actor APIClient {
             "app_version": AppConfig.version,
         ]
         if let pushToken {
+            pushTokenPending = false
             body["apns_token"] = pushToken
             body["apns_env"] = AppConfig.apnsEnvironment
         }

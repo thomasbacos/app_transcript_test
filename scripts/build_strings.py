@@ -270,6 +270,14 @@ FR = {
         "Votre abonnement n'a pas pu être vérifié par le serveur. Essayez « Restaurer les achats » ; si le problème persiste, contactez l'assistance.",
     "Your purchase went through, but the server has not confirmed it yet. Try Restore purchases in a moment.":
         "Votre achat est validé, mais le serveur ne l'a pas encore confirmé. Essayez « Restaurer les achats » dans un instant.",
+    "Agree and continue": "Accepter et continuer",
+    "Your audio and AI": "Votre audio et l'IA",
+    "To transcribe, Parley sends the audio (and any reference documents) to OpenAI, its AI provider. OpenAI does not use it to train its models; it is deleted from our server once processed.":
+        "Pour transcrire, Parley envoie l'audio (et les éventuels documents de référence) à OpenAI, son fournisseur d'IA. OpenAI ne s'en sert pas pour entraîner ses modèles ; il est supprimé de notre serveur après traitement.",
+    "Recordings you transcribe are processed by OpenAI, our AI provider. Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone.":
+        "Les enregistrements que vous transcrivez sont traités par OpenAI, notre fournisseur d'IA. L'audio est supprimé du serveur dès qu'il est transcrit, et la transcription dès que cet iPhone l'a récupérée. Les enregistrements que vous ne transcrivez pas ne quittent jamais votre iPhone.",
+    "Recording paused": "Enregistrement en pause",
+    "A call interrupted your recording. Open Parley to resume it.": "Un appel a interrompu votre enregistrement. Ouvrez Parley pour le reprendre.",
     # Live Activity
     "Parley is recording": "Parley enregistre",
 }

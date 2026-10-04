@@ -103,6 +103,23 @@
         }
       }
     },
+    "A call interrupted your recording. Open Parley to resume it." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A call interrupted your recording. Open Parley to resume it."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un appel a interrompu votre enregistrement. Ouvrez Parley pour le reprendre."
+          }
+        }
+      }
+    },
     "A clean transcript with each speaker identified. Rename them in one tap, jump to any moment." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -188,6 +205,23 @@
         }
       }
     },
+    "Agree and continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agree and continue"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accepter et continuer"
+          }
+        }
+      }
+    },
     "Allow microphone access in Settings to record." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -201,23 +235,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Autorisez l'accès au micro dans Réglages pour enregistrer."
-          }
-        }
-      }
-    },
-    "Allow the microphone" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Allow the microphone"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Autoriser le micro"
           }
         }
       }
@@ -252,23 +269,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Audio supprimé de nos serveurs après traitement"
-          }
-        }
-      }
-    },
-    "Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'audio est supprimé du serveur dès qu'il est transcrit, et la transcription dès que cet iPhone l'a récupérée. Les enregistrements que vous ne transcrivez pas ne quittent jamais votre iPhone."
           }
         }
       }
@@ -1803,6 +1803,23 @@
         }
       }
     },
+    "Recording paused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording paused"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enregistrement en pause"
+          }
+        }
+      }
+    },
     "Recording — you can lock your iPhone" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1816,6 +1833,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enregistrement — vous pouvez verrouiller l'iPhone"
+          }
+        }
+      }
+    },
+    "Recordings you transcribe are processed by OpenAI, our AI provider. Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordings you transcribe are processed by OpenAI, our AI provider. Audio is deleted from the server as soon as it is transcribed, and the transcript as soon as this iPhone has downloaded it. Recordings you do not transcribe never leave your iPhone."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les enregistrements que vous transcrivez sont traités par OpenAI, notre fournisseur d'IA. L'audio est supprimé du serveur dès qu'il est transcrit, et la transcription dès que cet iPhone l'a récupérée. Les enregistrements que vous ne transcrivez pas ne quittent jamais votre iPhone."
           }
         }
       }
@@ -3095,6 +3129,23 @@
         }
       }
     },
+    "To transcribe, Parley sends the audio (and any reference documents) to OpenAI, its AI provider. OpenAI does not use it to train its models; it is deleted from our server once processed." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To transcribe, Parley sends the audio (and any reference documents) to OpenAI, its AI provider. OpenAI does not use it to train its models; it is deleted from our server once processed."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pour transcrire, Parley envoie l'audio (et les éventuels documents de référence) à OpenAI, son fournisseur d'IA. OpenAI ne s'en sert pas pour entraîner ses modèles ; il est supprimé de notre serveur après traitement."
+          }
+        }
+      }
+    },
     "Today" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3584,6 +3635,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vous pouvez fermer Parley : une notification vous préviendra quand ce sera prêt."
+          }
+        }
+      }
+    },
+    "Your audio and AI" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your audio and AI"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre audio et l'IA"
           }
         }
       }

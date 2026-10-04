@@ -46,7 +46,7 @@ struct OnboardingView: View {
                     Button {
                         next(from: i)
                     } label: {
-                        Text(i == pages.count - 1 ? tr("Allow the microphone") : tr("Continue"))
+                        Text(tr("Continue"))
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)

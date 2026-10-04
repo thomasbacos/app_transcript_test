@@ -22,7 +22,7 @@ WEIGHTS = {"preparing": (0.00, 0.08), "text": (0.08, 0.25), "speakers": (0.25, 0
 
 
 def process(audio_path, doc_paths, opts, client, models, llm_models, cache, workdir, progress=None,
-            cancelled=None, parallel=8):
+            cancelled=None, parallel=8, on_duration=None):
     """-> result dict (see README "API"). opts: languages, terms, speakers, correct, summary,
     summary_language ("auto" or a code), ui_language."""
     progress = progress or (lambda stage, overall: None)
@@ -99,7 +99,7 @@ def process(audio_path, doc_paths, opts, client, models, llm_models, cache, work
 
     res = transcribe.run(audio_path, workdir, client, models, languages=languages, keywords=keywords,
                          speakers=with_speakers, on_text=on_text, cache=cache,
-                         progress=report, cancelled=cancelled, parallel=parallel)
+                         progress=report, cancelled=cancelled, parallel=parallel, on_duration=on_duration)
     if side.get("t"):
         report("correcting", 0.2)
         side["t"].join()

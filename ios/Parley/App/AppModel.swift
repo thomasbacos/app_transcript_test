@@ -7,10 +7,12 @@ enum AppAlert: Identifiable {
     case microphoneDenied
     case message(String)
     case needsPlan(String)
+    case aiConsent(UUID)
 
     var id: String {
         switch self {
         case .microphoneDenied: return "mic"
+        case .aiConsent(let id): return "ai" + id.uuidString
         case .message(let m): return "m" + m
         case .needsPlan(let m): return "p" + m
         }
@@ -65,7 +67,8 @@ final class AppModel {
         let active = phase == .active
         processing.isAppActive = active
         recorder.isUIVisible = active
-        if active && launched {
+        if active { recorder.resumeAfterInterruptionIfNeeded() }
+        if active && launched && !Demo.isActive {
             Task {
                 await subscriptions.refreshAccount()
                 processing.startPolling()
@@ -94,7 +97,7 @@ final class AppModel {
     private func recordingFinished(_ rec: Recording) {
         showRecorder = false
         path = [rec.id]
-        if Prefs.autoTranscribe, subscriptions.isActive, rec.duration >= 2 {
+        if Prefs.autoTranscribe, Prefs.aiConsent, subscriptions.isActive, rec.duration >= 2 {
             let remaining = subscriptions.account?.remainingSeconds ?? 0
             let maxFile = subscriptions.account?.maxFileSeconds ?? 0
             if rec.duration <= remaining + 5, rec.duration <= maxFile + 5 {
@@ -113,11 +116,18 @@ final class AppModel {
 
     /// Entry point of every "Transcribe" button: paywall first if needed, then the options sheet.
     func requestTranscription(_ id: UUID) {
-        if subscriptions.isActive {
-            transcribeTarget = id
-        } else {
+        if !subscriptions.isActive {
             showPaywall = true
+        } else if !Prefs.aiConsent {
+            alert = .aiConsent(id)
+        } else {
+            transcribeTarget = id
         }
+    }
+
+    func giveAIConsent(continueWith id: UUID) {
+        Prefs.aiConsent = true
+        transcribeTarget = id
     }
 
     /// Returns the problem instead of showing it when `presentErrors` is false (the caller is a sheet,
@@ -234,6 +244,16 @@ enum BackgroundTime {
 }
 
 enum NotificationManager {
+    /// iOS did not let the recording resume after a call: tell the user, who may not be looking.
+    static func notifyRecordingPaused() {
+        let content = UNMutableNotificationContent()
+        content.title = tr("Recording paused")
+        content.body = tr("A call interrupted your recording. Open Parley to resume it.")
+        content.sound = .default
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "recording-paused",
+                                                                     content: content, trigger: nil))
+    }
+
     /// Asked the first time a transcription starts, when the benefit is obvious.
     static func requestIfNeeded() async {
         let center = UNUserNotificationCenter.current()

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import jwt
 from appstoreserverlibrary.models.Environment import Environment
-from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier, VerificationException
+from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier, VerificationException, VerificationStatus
 
 from .config import PLAN_ORDER, get_settings
 
@@ -29,7 +29,9 @@ GRACE = dt.timedelta(hours=1)   # renewal not yet synced to the device
 
 
 class InvalidTransaction(Exception):
-    pass
+    def __init__(self, message, retryable=False):
+        super().__init__(message)
+        self.retryable = retryable
 
 
 @dataclass
@@ -86,7 +88,8 @@ def verify_transaction(jws):
     try:
         return _verifier(env).verify_and_decode_signed_transaction(jws)
     except VerificationException as e:
-        raise InvalidTransaction("verification failed: %s" % e) from e
+        retry = e.status == VerificationStatus.RETRYABLE_VERIFICATION_FAILURE
+        raise InvalidTransaction("verification failed: %s" % e, retryable=retry) from e
 
 
 def verify_notification(signed_payload):
@@ -155,6 +158,11 @@ def period_of(ent, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
     if ent.is_trial:
         return "trial:" + ent.original_transaction_id, ent.expires
+    if ent.environment == "Sandbox":
+        # Sandbox renewals happen every few minutes (a new transaction each time): one allowance per
+        # calendar month, so TestFlight testers do not get endless fresh minutes.
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        return "sbx:%s:%s" % (ent.original_transaction_id, now.strftime("%Y-%m")), add_months(start, 1)
     start = ent.purchase
     idx = max(0, (now.year - start.year) * 12 + (now.month - start.month))
     while idx > 0 and add_months(start, idx) > now:

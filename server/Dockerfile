@@ -23,4 +23,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD python -c "import urllib.request,os; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ.get('PORT','8000'), timeout=4)"
 
 # A single worker on purpose: uploaded audio and the job queue are local to the process.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*' --timeout-keep-alive 75"]
+# FORWARDED_ALLOW_IPS: proxies trusted for the client IP. "*" fits Render/Railway/Fly (behind their proxy);
+# on a bare VPS without a reverse proxy, set it to 127.0.0.1.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips=\"${FORWARDED_ALLOW_IPS:-*}\" --timeout-keep-alive 75"]

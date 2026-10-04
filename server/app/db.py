@@ -52,6 +52,13 @@ class Install(Base):
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class RevokedTransaction(Base):
+    """Refunded / revoked App Store transactions (from App Store Server Notifications)."""
+    __tablename__ = "revoked_transactions"
+    transaction_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Usage(Base):
     """Seconds of audio transcribed per account and allowance period. Kept after account deletion (it is
     an anonymous counter) so deleting data cannot be used to reset an allowance."""

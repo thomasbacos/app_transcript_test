@@ -67,7 +67,7 @@ scripts/                   icône, traductions (build_strings.py), génération 
 ```bash
 # serveur
 cd server && python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt pytest
-python -m pytest -q                 # 13 tests : pipeline, essai, quotas, reprise après panne, achats refusés
+python -m pytest -q                 # 19 tests : pipeline, essai, quotas, abus, reprise après panne, remboursements
 uvicorn app.main:app --reload       # http://localhost:8000
 
 # app : ouvrir ios/Parley.xcodeproj dans Xcode 26

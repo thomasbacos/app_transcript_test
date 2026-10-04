@@ -41,6 +41,10 @@ struct RootView: View {
             case .needsPlan:
                 Button("See plans") { model.showPaywall = true }
                 Button("Not now", role: .cancel) {}
+            case .aiConsent(let id):
+                Button("Agree and continue") { model.giveAIConsent(continueWith: id) }
+                Button("Privacy policy") { openURL(AppConfig.privacyURL) }
+                Button("Cancel", role: .cancel) {}
             case .message:
                 Button("OK", role: .cancel) {}
             }
@@ -50,6 +54,8 @@ struct RootView: View {
                 Text("Allow microphone access in Settings to record.")
             case .needsPlan(let m), .message(let m):
                 Text(m)
+            case .aiConsent:
+                Text("To transcribe, Parley sends the audio (and any reference documents) to OpenAI, its AI provider. OpenAI does not use it to train its models; it is deleted from our server once processed.")
             }
         }
         .overlay {
@@ -74,6 +80,7 @@ struct RootView: View {
         switch model.alert {
         case .microphoneDenied: return tr("Microphone access")
         case .needsPlan: return tr("Transcription time")
+        case .aiConsent: return tr("Your audio and AI")
         default: return tr("Parley")
         }
     }

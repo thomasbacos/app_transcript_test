@@ -56,6 +56,12 @@ enum Prefs {
         set { d.set(newValue, forKey: "autoTranscribe") }
     }
 
+    /// The user agreed that recordings are sent to OpenAI for transcription.
+    static var aiConsent: Bool {
+        get { d.bool(forKey: "aiConsent") }
+        set { d.set(newValue, forKey: "aiConsent") }
+    }
+
     static var keepAwake: Bool {
         get { d.bool(forKey: "keepAwake") }
         set { d.set(newValue, forKey: "keepAwake") }

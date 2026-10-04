@@ -47,11 +47,20 @@ final class AudioRecorder: NSObject {
         self.store = store
         super.init()
         observeSession()
-        RecordingControl.shared.togglePause = { [weak self] in self?.togglePause() }
-        RecordingControl.shared.stop = { [weak self] in
-            Task { await self?.stop() }
+        // Live Activity buttons. If nothing is being recorded (e.g. the app was killed), the activity is
+        // a leftover: remove it.
+        RecordingControl.shared.togglePause = { [weak self] in
+            guard let self, self.isActive else { return LiveActivityManager.shared.endAll() }
+            self.togglePause()
         }
-        RecordingControl.shared.addMarker = { [weak self] in self?.addMarker() }
+        RecordingControl.shared.stop = { [weak self] in
+            guard let self, self.isActive else { return LiveActivityManager.shared.endAll() }
+            Task { await self.stop() }
+        }
+        RecordingControl.shared.addMarker = { [weak self] in
+            guard let self, self.isActive else { return LiveActivityManager.shared.endAll() }
+            self.addMarker()
+        }
     }
 
     var isActive: Bool { state != .idle }
@@ -121,18 +130,29 @@ final class AudioRecorder: NSObject {
         syncActivity()
     }
 
-    func resume() {
-        guard state == .paused, let r = recorder else { return }
+    @discardableResult
+    func resume() -> Bool {
+        guard state == .paused, let r = recorder else { return false }
         try? AVAudioSession.sharedInstance().setActive(true)
-        if r.record() {
-            state = .recording
-            pausedBySystem = false
-            syncActivity()
-        }
+        guard r.record() else { return false }
+        state = .recording
+        pausedBySystem = false
+        syncActivity()
+        return true
+    }
+
+    /// Called when the app comes back to the foreground: a recording paused by a call that iOS did not
+    /// let us resume in the background restarts now.
+    func resumeAfterInterruptionIfNeeded() {
+        if pausedBySystem { resume() }
     }
 
     func togglePause() {
-        state == .recording ? pause() : resume()
+        if state == .recording {
+            pause()
+        } else {
+            resume()
+        }
     }
 
     func addMarker() {
@@ -305,7 +325,9 @@ final class AudioRecorder: NSObject {
             }
         case .ended:
             // Resume even without `.shouldResume`: the meeting is still going on.
-            if pausedBySystem { resume() }
+            if pausedBySystem && !resume() {
+                NotificationManager.notifyRecordingPaused()
+            }
         @unknown default:
             break
         }

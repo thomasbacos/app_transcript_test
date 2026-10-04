@@ -11,6 +11,9 @@ final class ProcessingService {
     @ObservationIgnored private let uploads = UploadManager.shared
     @ObservationIgnored private var pollTask: Task<Void, Never>?
     @ObservationIgnored private var fetching = Set<UUID>()
+    @ObservationIgnored private var starting = Set<UUID>()          // job being created
+    @ObservationIgnored private var uploadsStarting = Set<String>()  // upload being handed to the session
+    @ObservationIgnored private var refreshing = false
     var isAppActive = true
     /// Set when a transcript lands (drives the review prompt and the UI).
     private(set) var lastCompleted: UUID?
@@ -31,7 +34,13 @@ final class ProcessingService {
     // MARK: start
 
     func transcribe(_ id: UUID, options: ProcessingOptions, docs: [URL]) async throws {
-        guard let rec = store.recording(id) else { return }
+        guard let rec = store.recording(id), !rec.isBusy, !starting.contains(id) else { return }
+        starting.insert(id)
+        defer { starting.remove(id) }
+        if let old = rec.jobID {                 // a previous attempt: free its reserved minutes
+            uploads.cancel(jobID: old)
+            try? await api.deleteJob(old)
+        }
         let docFiles = store.copyDocs(docs, to: id)
         let job: JobStatus
         do {
@@ -59,7 +68,10 @@ final class ProcessingService {
     }
 
     private func startUpload(_ id: UUID) async throws {
-        guard let rec = store.recording(id), let jobID = rec.jobID else { return }
+        guard let rec = store.recording(id), let jobID = rec.jobID, !uploadsStarting.contains(jobID) else { return }
+        uploadsStarting.insert(jobID)
+        defer { uploadsStarting.remove(jobID) }
+        if await uploads.activeJobIDs().contains(jobID) { return }       // already on its way
         let file = store.audioURL(rec)
         let req = try await api.uploadRequest(jobID: jobID, fileExtension: file.pathExtension.lowercased())
         uploads.upload(file: file, request: req, jobID: jobID)
@@ -77,10 +89,15 @@ final class ProcessingService {
     private func uploadFinished(_ e: UploadEvent) {
         guard let r = store.recording(jobID: e.jobID) else { return }
         if let message = e.error {
+            Task { await self.uploadErrored(r.id, jobID: e.jobID, message: message) }
+            return
+        }
+        if e.status == 401 {                     // the session in the upload request expired: just resend
             store.update(r.id) {
                 $0.status = .failed
                 $0.errorCode = "upload_failed"
-                $0.errorMessage = tr("The upload was interrupted (%@).", message)
+                $0.errorMessage = APIError.server(status: 401, code: "unauthorized", message: "", remaining: nil,
+                                                  maxFile: nil).localizedDescription
                 $0.retryable = true
             }
             return
@@ -103,6 +120,20 @@ final class ProcessingService {
         }
     }
 
+    private func uploadErrored(_ id: UUID, jobID: String, message: String) async {
+        if let job = try? await api.job(jobID), job.status != "awaiting_audio" {
+            apply(job, to: id, uploadActive: false)
+            startPolling()
+            return
+        }
+        store.update(id) {
+                $0.status = .failed
+                $0.errorCode = "upload_failed"
+                $0.errorMessage = tr("The upload was interrupted (%@).", message)
+                $0.retryable = true
+            }
+    }
+
     // MARK: polling
 
     func startPolling() {
@@ -123,6 +154,9 @@ final class ProcessingService {
     func refreshInFlight() async -> Bool {
         let inflight = store.recordings.filter { $0.isBusy && $0.jobID != nil }
         guard !inflight.isEmpty else { return false }
+        guard !refreshing else { return true }
+        refreshing = true
+        defer { refreshing = false }
         let activeUploads = await uploads.activeJobIDs()
         for rec in inflight {
             guard let jobID = rec.jobID else { continue }

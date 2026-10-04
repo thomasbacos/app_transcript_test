@@ -108,9 +108,12 @@ def auth(authorization: str = Header(default="")):
         raise err(401, "unauthorized", "Session expired.")
 
 
-def _own_job(db, job_id, account_id):
+def _own_job(db, job_id, who):
+    """The job, if it belongs to this account or was created from this installation (a session can
+    land on another account later, e.g. when a trial ends while the job is running)."""
+    acc_id, install_id = who
     j = db.get(Job, job_id)
-    if j is None or j.account_id != account_id or j.status in ("deleted",):
+    if j is None or j.status == "deleted" or not (j.account_id == acc_id or (install_id and j.install_id == install_id)):
         raise err(404, "not_found", "Unknown job.")
     return j
 
@@ -179,8 +182,11 @@ def _routes(app):
         if not re.fullmatch(r"[A-Za-z0-9-]{8,64}", body.install_id):
             raise err(400, "bad_install_id", "Invalid install id.")
         with session() as db:
-            acc, errors = accounts.open_session(db, body.install_id, body.transactions, body.apns_token,
-                                                body.apns_env, body.locale, body.app_version)
+            try:
+                acc, errors = accounts.open_session(db, body.install_id, body.transactions, body.apns_token,
+                                                    body.apns_env, body.locale, body.app_version)
+            except accounts.TransientError:
+                raise err(503, "verification_unavailable", "Purchase verification is temporarily unavailable.")
             if errors:
                 log.info("session %s: %d transaction(s) rejected: %s", body.install_id[:8], len(errors), errors[:2])
             token, exp = accounts.issue_token(acc.id, body.install_id)
@@ -217,7 +223,7 @@ def _routes(app):
         if not (0 < duration < 24 * 3600):
             raise err(400, "bad_duration", "duration (seconds) is required.")
         docs = [d for d in (docs or []) if d and d.filename][:MAX_DOCS]
-        with session() as db:
+        with accounts.account_lock(acc_id), session() as db:
             acc = db.get(Account, acc_id)
             if acc is None:
                 raise err(401, "unauthorized", "Unknown account.")
@@ -261,17 +267,13 @@ def _routes(app):
         if ext not in AUDIO_EXT:
             raise err(400, "bad_format", "Unsupported audio format.")
         with session() as db:
-            j = _own_job(db, job_id, acc_id)
-            if j.status == "failed" and j.error_code == "audio_missing":
-                j.status = "awaiting_audio"
-            if j.status != "awaiting_audio":
+            j = _own_job(db, job_id, who)
+            if j.status not in ("awaiting_audio", "failed") or (j.status == "failed" and j.error_code != "audio_missing"):
                 return job_out(j)              # already uploaded (e.g. a retried background upload)
+            owner = j.account_id
         d = job_dir(job_id)
         os.makedirs(d, exist_ok=True)
-        old = audio_path(job_id)
-        if old:
-            os.remove(old)
-        path, tmp = audio_path(job_id, ext), os.path.join(d, "upload.part")
+        tmp = os.path.join(d, "upload-%s.part" % uuid.uuid4().hex)   # one per request: uploads can overlap
         limit, n = s.max_upload_mb * 1024 * 1024, 0
         try:
             with open(tmp, "wb") as fh:
@@ -282,33 +284,40 @@ def _routes(app):
                     fh.write(chunk)
             if n == 0:
                 raise err(400, "empty_upload", "No audio received.")
-            os.replace(tmp, path)
             try:
-                real = probe_duration(path)
+                real = probe_duration(tmp)
             except Exception:
                 raise err(400, "invalid_audio", "This file could not be read as audio.")
-        except HTTPException:
-            for p in (tmp, path):
-                if os.path.exists(p):
-                    os.remove(p)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.remove(tmp)
             raise
-        refused = None
-        with session() as db:
-            j = _own_job(db, job_id, acc_id)
-            acc = db.get(Account, acc_id)
-            if real > j.declared_seconds * 1.05 + 10:      # the app under-declared: check the real length
+        refused, accepted = None, False
+        with accounts.account_lock(owner), session() as db:
+            j = _own_job(db, job_id, who)
+            if j.status == "awaiting_audio" or (j.status == "failed" and j.error_code == "audio_missing"):
+                acc = db.get(Account, owner)
                 try:
+                    # the real length, against what is left (other jobs included)
                     accounts.check_can_start(db, acc, real, exclude_job=job_id)
                 except accounts.QuotaError as e:
                     j.status, j.error_code, j.error_message, j.retryable = "failed", e.code, e.message, False
                     refused = e
-            if refused is None:
-                j.duration_seconds, j.audio_ext, j.status, j.stage, j.progress = real, ext, "queued", "queued", 0.0
+                if refused is None:
+                    old = audio_path(job_id)
+                    if old:
+                        os.remove(old)
+                    os.replace(tmp, audio_path(job_id, ext))
+                    j.duration_seconds, j.audio_ext, j.status, j.stage, j.progress = real, ext, "queued", "queued", 0.0
+                    j.error_code = j.error_message = None
+                    accepted = True
             out = job_out(j)
+        if os.path.exists(tmp):
+            os.remove(tmp)
         if refused is not None:
-            os.remove(path)
             raise refused
-        runner.submit(job_id)
+        if accepted:
+            runner.submit(job_id)
         return out
 
     @app.get("/v1/jobs")
@@ -321,12 +330,12 @@ def _routes(app):
     @app.get("/v1/jobs/{job_id}")
     def get_job(job_id: str, who=Depends(auth)):
         with session() as db:
-            return job_out(_own_job(db, job_id, who[0]))
+            return job_out(_own_job(db, job_id, who))
 
     @app.get("/v1/jobs/{job_id}/result")
     def get_result(job_id: str, who=Depends(auth)):
         with session() as db:
-            j = _own_job(db, job_id, who[0])
+            j = _own_job(db, job_id, who)
             if j.status == "expired":
                 raise err(410, "expired", "This result is no longer stored on the server.")
             if j.status != "done" or not j.result_json:
@@ -335,8 +344,8 @@ def _routes(app):
 
     @app.post("/v1/jobs/{job_id}/retry")
     def retry(job_id: str, who=Depends(auth)):
-        with session() as db:
-            j = _own_job(db, job_id, who[0])
+        with accounts.account_lock(who[0]), session() as db:
+            j = _own_job(db, job_id, who)
             if j.status not in ("failed",) or not j.retryable:
                 return job_out(j)
             acc = db.get(Account, who[0])
@@ -357,9 +366,10 @@ def _routes(app):
     @app.delete("/v1/jobs/{job_id}", status_code=204)
     def delete_job(job_id: str, who=Depends(auth)):
         with session() as db:
-            j = db.get(Job, job_id)
-            if j is not None and j.account_id == who[0]:
-                _scrub(j)
+            try:
+                _scrub(_own_job(db, job_id, who))
+            except HTTPException:
+                pass
         return Response(status_code=204)
 
     @app.post("/v1/appstore/notifications")
@@ -380,9 +390,7 @@ def _routes(app):
             with session() as db:
                 acc_id = "ot:" + str(tx.originalTransactionId)
                 if kind in ("REFUND", "REVOKE"):
-                    acc = db.get(Account, acc_id)
-                    if acc:
-                        acc.revoked = True
+                    accounts.revoke(db, tx.transactionId, tx.originalTransactionId)
                 else:
                     ent = appstore.entitlement_from(tx)
                     if ent:
