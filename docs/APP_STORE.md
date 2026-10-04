@@ -46,6 +46,7 @@ LE RÉSUMÉ, PRÊT À PARTAGER
 • Français, anglais et plus de 20 langues, détectées automatiquement
 
 CONFIDENTIALITÉ
+• Transcription par OpenAI, uniquement après votre accord explicite
 • Pas de compte à créer
 • Vos enregistrements restent sur votre iPhone tant que vous ne les transcrivez pas
 • L'audio est supprimé de nos serveurs dès la fin du traitement
@@ -84,6 +85,7 @@ THE SUMMARY, READY TO SHARE
 • English, French and 20+ languages, detected automatically
 
 PRIVACY
+• Transcription by OpenAI, only after your explicit consent
 • No account to create
 • Recordings stay on your iPhone until you choose to transcribe them
 • Audio is deleted from our servers as soon as processing ends
@@ -133,6 +135,7 @@ Parley records meetings and transcribes them on our server (OpenAI speech-to-tex
 - To test transcription: on the paywall, start the 7-day free trial with your sandbox account (any plan), record 20-30 seconds of speech or import an audio file, then tap "Transcribe". The result appears within about a minute; a notification is sent when ready.
 - Background audio (UIBackgroundModes: audio) is used only to keep recording a meeting while the screen is locked or another app is open, which is the core feature. A Live Activity shows the timer with pause / stop buttons.
 - Recording without a subscription is possible (it stays on the device); transcription requires the trial or a subscription.
+- Third-party AI (guideline 5.1.2(i)): before the first transcription, the app explains that the audio and any reference documents are sent to OpenAI and asks for explicit consent ("Agree and continue"). Nothing is sent before that.
 - Privacy policy: https://<your server>/legal/privacy  — Terms: Apple standard EULA.
 ```
 
