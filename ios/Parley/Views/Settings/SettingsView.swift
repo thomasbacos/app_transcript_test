@@ -152,6 +152,10 @@ struct SettingsView: View {
                     Text("Your subscription is active but the server cannot be reached right now.")
                         .font(.footnote)
                         .foregroundStyle(.orange)
+                } else if subs.serverRejectedPurchase {
+                    Text("Your subscription could not be verified by the server. Try Restore purchases; if it persists, contact support.")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
                 }
             }
             Button("Restore purchases") { Task { await subs.restore() } }

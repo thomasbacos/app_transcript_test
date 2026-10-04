@@ -170,3 +170,20 @@ def test_periods():
     trial = appstore.Entitlement("pro", "x.pro.monthly", True, "5", "5", dt.datetime(2026, 1, 1, tzinfo=utc),
                                  dt.datetime(2026, 1, 8, tzinfo=utc), "Sandbox")
     assert appstore.period_of(trial)[0] == "trial:5"
+
+
+def test_yearly_allowance_rolls_over_without_a_new_session():
+    from app import accounts
+    from app.db import Account
+    utc = dt.timezone.utc
+    ent = appstore.Entitlement("pro", "x.pro.yearly", False, "1", "9", dt.datetime(2026, 1, 10, tzinfo=utc),
+                               dt.datetime(2027, 1, 10, tzinfo=utc), "Sandbox")
+    acc = Account(id=ent.account_id)
+
+    class FakeDB:
+        def get(self, *_):
+            return acc
+    accounts.apply_entitlement(FakeDB(), ent, now=dt.datetime(2026, 1, 12, tzinfo=utc))
+    assert acc.period_key == "9:0"
+    accounts.roll_period(acc, now=dt.datetime(2026, 3, 11, tzinfo=utc))
+    assert acc.period_key == "9:2" and acc.period_end == dt.datetime(2026, 4, 10, tzinfo=utc)

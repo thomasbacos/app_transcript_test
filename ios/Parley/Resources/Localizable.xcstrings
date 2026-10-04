@@ -3673,6 +3673,23 @@
         }
       }
     },
+    "Your purchase went through, but the server has not confirmed it yet. Try Restore purchases in a moment." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your purchase went through, but the server has not confirmed it yet. Try Restore purchases in a moment."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre achat est validé, mais le serveur ne l'a pas encore confirmé. Essayez « Restaurer les achats » dans un instant."
+          }
+        }
+      }
+    },
     "Your recording is safe on this iPhone." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3686,6 +3703,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Votre enregistrement est en sécurité sur cet iPhone."
+          }
+        }
+      }
+    },
+    "Your subscription could not be verified by the server. Try Restore purchases; if it persists, contact support." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your subscription could not be verified by the server. Try Restore purchases; if it persists, contact support."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre abonnement n'a pas pu être vérifié par le serveur. Essayez « Restaurer les achats » ; si le problème persiste, contactez l'assistance."
           }
         }
       }

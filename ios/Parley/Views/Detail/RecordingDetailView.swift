@@ -10,7 +10,7 @@ struct RecordingDetailView: View {
     @Environment(AudioRecorder.self) private var recorder
     @Environment(\.requestReview) private var requestReview
     @State private var player = AudioPlayer()
-    @State private var tab: Tab = .summary
+    @State private var tab: Tab = Demo.isActive && Demo.screen == "transcript" ? .transcript : .summary
     @State private var share: ShareItem?
     @State private var renaming = false
     @State private var titleDraft = ""

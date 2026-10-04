@@ -266,6 +266,10 @@ FR = {
     "Your subscription is active but the server cannot be reached right now.": "Votre abonnement est actif mais le serveur est injoignable pour le moment.",
     "per month": "par mois",
     "per year": "par an",
+    "Your subscription could not be verified by the server. Try Restore purchases; if it persists, contact support.":
+        "Votre abonnement n'a pas pu être vérifié par le serveur. Essayez « Restaurer les achats » ; si le problème persiste, contactez l'assistance.",
+    "Your purchase went through, but the server has not confirmed it yet. Try Restore purchases in a moment.":
+        "Votre achat est validé, mais le serveur ne l'a pas encore confirmé. Essayez « Restaurer les achats » dans un instant.",
     # Live Activity
     "Parley is recording": "Parley enregistre",
 }

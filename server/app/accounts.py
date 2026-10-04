@@ -41,8 +41,25 @@ def apply_entitlement(db, ent, now=None):
     key, end = appstore.period_of(ent, now)
     acc.plan, acc.product_id, acc.is_trial = ent.plan, ent.product_id, ent.is_trial
     acc.period_key, acc.period_end, acc.expires_at = key, end, ent.expires
+    acc.transaction_id, acc.purchase_at = ent.transaction_id, ent.purchase
     acc.environment, acc.revoked = ent.environment, False
     return acc
+
+
+def roll_period(acc, now=None):
+    """A yearly subscription gets a fresh allowance every month even if the app has not opened a new
+    session since: recompute the window from the stored purchase date."""
+    if acc is None or acc.is_trial or not acc.purchase_at or not acc.transaction_id:
+        return
+    now = now or utcnow()
+    end = aware(acc.period_end)
+    if end is not None and now < end:
+        return
+    ent = appstore.Entitlement(plan=acc.plan, product_id=acc.product_id or "", is_trial=False,
+                               original_transaction_id=acc.id.split(":", 1)[-1], transaction_id=acc.transaction_id,
+                               purchase=aware(acc.purchase_at), expires=aware(acc.expires_at),
+                               environment=acc.environment or "")
+    acc.period_key, acc.period_end = appstore.period_of(ent, now)
 
 
 def free_account(db, install_id):
@@ -108,6 +125,7 @@ def reserved_seconds(db, acc_id, period_key, exclude_job=None):
 
 def status(db, acc):
     """What the app shows: plan, allowance, what is left, when it resets."""
+    roll_period(acc)
     plan = plan_of(acc)
     out = {"plan": acc.plan if plan else "none", "is_trial": bool(acc.is_trial and plan),
            "product_id": acc.product_id if plan else None, "active": bool(plan),
@@ -132,6 +150,7 @@ class QuotaError(Exception):
 
 def check_can_start(db, acc, seconds, exclude_job=None):
     """Raise QuotaError if this account may not transcribe `seconds` of audio now."""
+    roll_period(acc)
     plan = plan_of(acc)
     if plan is None:
         raise QuotaError("subscription_required", "An active subscription or free trial is required.")

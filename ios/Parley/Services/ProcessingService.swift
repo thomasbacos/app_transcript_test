@@ -33,7 +33,15 @@ final class ProcessingService {
     func transcribe(_ id: UUID, options: ProcessingOptions, docs: [URL]) async throws {
         guard let rec = store.recording(id) else { return }
         let docFiles = store.copyDocs(docs, to: id)
-        let job = try await api.createJob(duration: rec.duration, options: options.payload(), docs: docFiles)
+        let job: JobStatus
+        do {
+            job = try await api.createJob(duration: rec.duration, options: options.payload(), docs: docFiles)
+        } catch let e as APIError where e.code == "subscription_required" {
+            // The trial may have just converted, or a renewal not yet been seen by the server: send the
+            // device's current transactions again, then retry once.
+            _ = try? await api.refreshSession()
+            job = try await api.createJob(duration: rec.duration, options: options.payload(), docs: docFiles)
+        }
         store.update(id) {
             $0.status = .uploading
             $0.jobID = job.id

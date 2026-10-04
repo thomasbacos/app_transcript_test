@@ -43,11 +43,13 @@ final class AppModel {
         subscriptions = SubscriptionManager()
         processing = ProcessingService(store: store)
         recorder.onFinished = { [weak self] rec in self?.recordingFinished(rec) }
+        Demo.apply(self)
     }
 
     func launch() async {
         guard !launched else { return }
         launched = true
+        if Demo.isActive { return }
         LiveActivityManager.shared.endAll()
         await recorder.recoverInterrupted()
         await subscriptions.start()
@@ -96,7 +98,13 @@ final class AppModel {
             let remaining = subscriptions.account?.remainingSeconds ?? 0
             let maxFile = subscriptions.account?.maxFileSeconds ?? 0
             if rec.duration <= remaining + 5, rec.duration <= maxFile + 5 {
-                Task { await transcribe(rec.id, options: Prefs.defaultOptions, docs: []) }
+                // Often stopped from the Lock Screen: ask iOS for time to create the job and hand the
+                // upload to the background session before the app is suspended.
+                Task {
+                    await BackgroundTime.run("transcribe") {
+                        await self.transcribe(rec.id, options: Prefs.defaultOptions, docs: [])
+                    }
+                }
             }
         }
     }
@@ -197,6 +205,31 @@ final class AppModel {
     func delete(_ id: UUID) {
         path.removeAll { $0 == id }
         processing.delete(id)
+    }
+}
+
+/// Extra execution time when work must finish after the app leaves the foreground.
+@MainActor
+enum BackgroundTime {
+    private final class Box: @unchecked Sendable {
+        var id = UIBackgroundTaskIdentifier.invalid
+    }
+
+    @discardableResult
+    static func run<T>(_ name: String, _ work: () async -> T) async -> T {
+        let box = Box()
+        box.id = UIApplication.shared.beginBackgroundTask(withName: name) {
+            MainActor.assumeIsolated {
+                UIApplication.shared.endBackgroundTask(box.id)
+                box.id = .invalid
+            }
+        }
+        let result = await work()
+        if box.id != .invalid {
+            UIApplication.shared.endBackgroundTask(box.id)
+            box.id = .invalid
+        }
+        return result
     }
 }
 

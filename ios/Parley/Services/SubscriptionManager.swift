@@ -67,6 +67,7 @@ final class SubscriptionManager {
     }
 
     func refreshAccount(force: Bool = false) async {
+        guard !Demo.isActive else { return }
         guard force || Date().timeIntervalSince(lastRefresh) > 60 else { return }
         lastRefresh = Date()
         do {
@@ -76,6 +77,21 @@ final class SubscriptionManager {
             serverReachable = (error as? APIError)?.code != "network"
         }
         hasLocalEntitlement = !(await Self.currentTransactions()).isEmpty
+        serverRejectedPurchase = hasLocalEntitlement && !isActive && (await APIClient.shared.rejectedTransactions) > 0
+    }
+
+    /// StoreKit has a subscription but the server refused its proof (wrong APPLE_APP_ID, bundle id, or an
+    /// Xcode StoreKit test purchase sent to a production server). Shown in Settings to ease setup.
+    private(set) var serverRejectedPurchase = false
+
+    /// Screenshot mode: a Pro subscriber with part of the month used.
+    func useDemoAccount() {
+        let end = Calendar.current.date(byAdding: .day, value: 24, to: Date()) ?? Date()
+        account = AccountStatus(plan: "pro", isTrial: false, productId: "\(AppConfig.bundleID).pro.yearly",
+                                active: true, expiresAt: nil, periodEnd: ISO8601DateFormatter().string(from: end),
+                                quotaSeconds: 36_000, usedSeconds: 13_260, reservedSeconds: 0,
+                                remainingSeconds: 22_740, maxFileSeconds: 14_400)
+        hasLocalEntitlement = true
     }
 
     func purchase(_ product: Product) async throws -> PurchaseOutcome {

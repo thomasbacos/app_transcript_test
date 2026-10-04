@@ -56,6 +56,7 @@ private struct SessionResponse: Codable {
     var token: String
     var expiresAt: String
     var account: AccountStatus
+    var rejectedTransactions: Int?
 }
 
 private struct ErrorEnvelope: Codable {
@@ -154,6 +155,8 @@ actor APIClient {
     private var pushToken: String?
     private var transactions: (@Sendable () async -> [String])?
     private var refreshing: Task<AccountStatus, Error>?
+    /// Transactions the server refused at the last session (see SubscriptionManager.serverRejectedPurchase).
+    private(set) var rejectedTransactions = 0
 
     init() {
         let c = URLSessionConfiguration.default
@@ -203,6 +206,7 @@ actor APIClient {
         let out: SessionResponse = try await perform(req, auth: false)
         token = out.token
         tokenExpiry = Date().addingTimeInterval(10 * 3600)
+        rejectedTransactions = out.rejectedTransactions ?? 0
         return out.account
     }
 

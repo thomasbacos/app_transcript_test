@@ -109,7 +109,9 @@ struct PaywallView: View {
 
     @ViewBuilder
     private var plans: some View {
-        if subs.products.isEmpty {
+        if subs.products.isEmpty && Demo.isActive {
+            demoPlans
+        } else if subs.products.isEmpty {
             VStack(spacing: 10) {
                 if subs.loadingProducts {
                     ProgressView()
@@ -127,6 +129,45 @@ struct PaywallView: View {
                 ForEach(subs.products, id: \.id) { p in
                     planCard(p)
                 }
+            }
+        }
+    }
+
+    /// Screenshot mode (no App Store products in the CI simulator): the same cards with static prices.
+    private var demoPlans: some View {
+        VStack(spacing: 10) {
+            ForEach(Array([("Essential", "4", "6,99 €", tr("per month"), false),
+                           ("Pro", "10", "14,99 €", tr("per month"), false),
+                           ("Pro", "10", "129,99 €", "10,83 €/mo", true)].enumerated()), id: \.offset) { i, p in
+                HStack(spacing: 14) {
+                    Image(systemName: i == 2 ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundStyle(i == 2 ? Theme.indigo : Color.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(p.0 == "Essential" ? tr("Essential") : "Pro").font(.headline)
+                            Text(p.4 ? tr("Yearly") : tr("Monthly")).font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                            if p.4 {
+                                Text("Best value")
+                                    .font(.caption2.weight(.bold))
+                                    .padding(.horizontal, 7).padding(.vertical, 3)
+                                    .background(Theme.coral, in: Capsule())
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        Text(tr("%lld h of transcription per month", Int(p.1) ?? 0))
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 6)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(p.2).font(.headline)
+                        Text(p.3).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(16)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(i == 2 ? Theme.indigo : Color.clear, lineWidth: 2))
             }
         }
     }
@@ -240,7 +281,12 @@ struct PaywallView: View {
             defer { purchasing = false }
             do {
                 switch try await subs.purchase(p) {
-                case .success: close()
+                case .success:
+                    if subs.isActive || !subs.serverReachable {
+                        close()
+                    } else {
+                        message = tr("Your purchase went through, but the server has not confirmed it yet. Try Restore purchases in a moment.")
+                    }
                 case .pending: message = tr("Your purchase is waiting for approval.")
                 case .cancelled: break
                 }

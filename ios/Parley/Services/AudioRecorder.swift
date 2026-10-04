@@ -171,9 +171,24 @@ final class AudioRecorder: NSObject {
             $0.duration = duration
             $0.markers = marks
         }
-        let saved = await finalize(id: id, fallbackDuration: duration)
+        // Compression keeps running if the recording was stopped from the Lock Screen.
+        let saved = await BackgroundTime.run("finalize") {
+            await self.finalize(id: id, fallbackDuration: duration)
+        }
         if let saved { onFinished?(saved) }
         return saved
+    }
+
+    /// Screenshot mode only (see Demo): shows the recorder without touching the microphone.
+    func startDemo(title: String) {
+        self.title = title
+        state = .recording
+        elapsed = 1843
+        markers = [612, 1290]
+        levels = (0..<levels.count).map { i in
+            let x = Double(i)
+            return CGFloat(0.25 + 0.55 * abs(sin(x * 0.55) * cos(x * 0.21)))
+        }
     }
 
     /// PCM -> AAC (about 7x smaller). If the PCM file is damaged, it is repaired first.

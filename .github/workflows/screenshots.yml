@@ -1,0 +1,70 @@
+name: Screenshots
+
+# Builds the app, runs it on the iPhone 17 Pro Max simulator in demo mode (-ParleyDemo) and captures
+# every main screen in French and English, at the App Store 6.9" size (1320 x 2868).
+# Result: the `screenshots` branch of this repo (also downloadable as an artifact).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/screenshots.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build for the simulator
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/Parley.xcodeproj -scheme Parley -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || (tail -40 build.log; exit 1)
+
+      - name: Boot an iPhone simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devs = [d for rt, ds in json.load(sys.stdin)["devices"].items() if "iOS" in rt for d in ds]
+          pick = [d for d in devs if "Pro Max" in d["name"]] or [d for d in devs if d["name"].startswith("iPhone")]
+          print(sorted(pick, key=lambda d: d["name"])[-1]["udid"])')
+          echo "UDID=$UDID" >> $GITHUB_ENV
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 \
+            --cellularMode active --cellularBars 4 --wifiBars 3 --operatorName ""
+          xcrun simctl install "$UDID" build/Build/Products/Debug-iphonesimulator/Parley.app
+
+      - name: Capture
+        run: |
+          mkdir -p shots
+          for lang in fr en; do
+            locale=$([ "$lang" = fr ] && echo fr_FR || echo en_US)
+            for screen in home summary transcript recorder paywall onboarding; do
+              xcrun simctl launch --terminate-running-process "$UDID" com.thomasbacos.parley \
+                -ParleyDemo -ParleyScreen "$screen" -AppleLanguages "($lang)" -AppleLocale "$locale" > /dev/null
+              sleep 7
+              xcrun simctl io "$UDID" screenshot "shots/${lang}-${screen}.png"
+            done
+          done
+          ls -la shots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: shots
+
+      - name: Publish to the screenshots branch
+        run: |
+          cd shots
+          git init -q
+          git checkout -q -b screenshots
+          git add .
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -q -m "Screenshots for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" screenshots

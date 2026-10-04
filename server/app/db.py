@@ -32,6 +32,9 @@ class Account(Base):
     period_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
     period_end: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     expires_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # current transaction: monthly allowance windows are anchored on its purchase date
+    transaction_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    purchase_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     environment: Mapped[str | None] = mapped_column(String(20), nullable=True)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
