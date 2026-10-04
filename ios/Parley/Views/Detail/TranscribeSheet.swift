@@ -178,7 +178,7 @@ struct TranscribeSheet: View {
     private var problemText: String {
         switch problem {
         case .needsPlan(let m), .message(let m): return m
-        case .microphoneDenied, .none: return ""
+        case .microphoneDenied, .aiConsent, .none: return ""
         }
     }
 }
